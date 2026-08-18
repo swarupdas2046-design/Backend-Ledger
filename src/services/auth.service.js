@@ -38,3 +38,31 @@ export const registerService = async({email, password, name})=>{
     
 }
 
+/** 
+ * - This is login service
+ * - checking ALL the validations
+ * - generate access token and refresh token
+ * - return access token and refresh token and isExistedUser
+*/
+export const loginService = async({email, password})=>{
+
+    if(!email || !password) throw new ApiError(400, "Please fill all the details")
+
+    if(!emailRegex.test(email)) throw new ApiError(400, "Please fill a valid email address")
+    if(password.length < 6) throw new ApiError(400, "Password must be at least 6 characters long.")
+
+    const isExistedUser = await authModel.findOne({email})
+
+    if(!isExistedUser) throw new ApiError(400, "User not found")
+
+    if(!isExistedUser.comparePassword(password)) throw new ApiError(400, "invalid Credentials")
+
+    const AccessToken = GENERATE_ACCESS_TOKEN(isExistedUser._id)
+
+    const RefreshToken = GENERATE_REFRESH_TOKEN(isExistedUser._id)
+
+    isExistedUser.refreshToken = RefreshToken
+    await isExistedUser.save()
+    
+    return {AccessToken, RefreshToken, isExistedUser}
+}
