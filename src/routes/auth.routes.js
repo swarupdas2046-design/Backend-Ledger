@@ -1,5 +1,5 @@
 import express from 'express'
-import { UserLogin, UserRegister } from '../controllers/auth.controller.js'
+import { GetRefresh, UserLogin, UserRegister } from '../controllers/auth.controller.js'
 
 
 const authRouter = express.Router()
@@ -16,6 +16,12 @@ authRouter.post('/register',UserRegister)
  */
 
 authRouter.post("/login",UserLogin)
+
+/**
+ * - /api/auth/getRefresh (GET) - Get refresh token
+ */
+
+authRouter.get("/getRefresh",GetRefresh)
 
 
 

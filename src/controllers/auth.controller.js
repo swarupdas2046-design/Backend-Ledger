@@ -1,4 +1,4 @@
-import { loginService, registerService } from "../services/auth.service.js";
+import { loginService, RefreshService, registerService } from "../services/auth.service.js";
 import ApiResponse from "../utils/apiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
@@ -67,3 +67,21 @@ export const UserLogin = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse("User logged in successfully",UserDetails(isExistedUser)))
 })
 
+/**
+ * - Get refresh token
+ * - /api/auth/getRefresh (GET)
+ * - Response: AccessToken, userinfo
+ * - Status: 200
+ */
+
+export const GetRefresh = asyncHandler(async (req, res) => {
+    const {AccessToken, isExistedUser} = await RefreshService(req.cookies.RefreshToken)
+
+    res.cookie("AccessToken",AccessToken,{
+        httpOnly:true,
+        secure:true,
+        maxAge:20*60*1000 // 20 minutes
+    })
+
+    res.status(200).json(new ApiResponse("Refresh SuccessFully",UserDetails(isExistedUser)))
+});

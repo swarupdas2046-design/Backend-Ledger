@@ -1,6 +1,6 @@
 import authModel from "../models/auth.model.js"
 import ApiError from "../utils/apiError.js"
-import { GENERATE_ACCESS_TOKEN, GENERATE_REFRESH_TOKEN } from "../utils/token.js"
+import { GENERATE_ACCESS_TOKEN, GENERATE_REFRESH_TOKEN, Verify_RefreshToken } from "../utils/token.js"
 
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
 
@@ -65,4 +65,21 @@ export const loginService = async({email, password})=>{
     await isExistedUser.save()
     
     return {AccessToken, RefreshToken, isExistedUser}
+}
+
+export const RefreshService = async (RefreshToken)=>{
+
+    if(!RefreshToken) throw new ApiError(400, "empty refresh token")
+    
+    const decode = Verify_RefreshToken(RefreshToken)
+
+    if(!decode) throw new ApiError(400, "invalid refresh token")
+    const isExistedUser = await authModel.findById(decode.id)
+
+    if(!isExistedUser) throw new ApiError(400, "User not found")
+    if(isExistedUser.refreshToken !== RefreshToken) throw new ApiError(400, "invalid refresh token")
+
+    const AccessToken = GENERATE_ACCESS_TOKEN(isExistedUser._id)
+
+    return {AccessToken, isExistedUser}
 }
