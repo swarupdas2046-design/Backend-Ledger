@@ -28,6 +28,7 @@ const authSchema = new mongoose.Schema({
     timestamps: true,
 });
 
+// Hash the password before saving the user document
 
 authSchema.pre("save",function() {
     if (!this.isModified("password")) {
@@ -36,11 +37,13 @@ authSchema.pre("save",function() {
     this.password = bcrypt.hashSync(this.password, 10)
 })
 
+// Compare the provided password with the hashed password in the database
+
 authSchema.methods.comparePassword = function(password) {
     return bcrypt.compareSync(password, this.password)
 }
 
-
+// Create and export the UserAuth model based on the authSchema
 export const authModel = mongoose.model("UserAuth", authSchema);
 
 
