@@ -1,5 +1,7 @@
 import express from 'express'
 import { GetRefresh, UserLogin, UserRegister } from '../controllers/auth.controller.js'
+import ApiResponse from '../utils/apiResponse.js'
+import authMiddleware from '../middlewares/auth.middleware.js'
 
 
 const authRouter = express.Router()
@@ -22,6 +24,10 @@ authRouter.post("/login",UserLogin)
  */
 
 authRouter.get("/getRefresh",GetRefresh)
+
+authRouter.get("/health", authMiddleware, (req, res) => {
+    res.status(200).json(new ApiResponse("Healthy, you're Authenticated ! :)",req.user))
+})
 
 
 
