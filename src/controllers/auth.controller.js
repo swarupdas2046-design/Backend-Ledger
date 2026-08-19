@@ -1,6 +1,7 @@
 import { loginService, RefreshService, registerService } from "../services/auth.service.js";
 import ApiResponse from "../utils/apiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import emailTemplate from "../utils/emailTemplate.js";
 
 // Get user details
 const UserDetails = (user)=>{
@@ -38,6 +39,8 @@ export const UserRegister = asyncHandler(async (req, res) => {
     })
 
     res.status(201).json(new ApiResponse("User registered successfully",UserDetails(newUser)))
+
+    await emailTemplate(newUser.email,newUser.name)
 
 });
 
