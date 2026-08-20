@@ -24,7 +24,7 @@ const accountSchema = new mongoose.Schema({
 accountSchema.index({user:1,status:1})
 
 
-
+// Create and export the UserAuth model based on the authSchema
 const accountModel = mongoose.model("Account",accountSchema)
 
 export default accountModel
