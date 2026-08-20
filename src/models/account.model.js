@@ -12,7 +12,8 @@ const accountSchema = new mongoose.Schema({
         enum:{
             values:["Active","Frozen","Closed"],
             message:"Status must be Active, Frozen or Closed"
-        }
+        },
+        default:"Active"
     },
     currency:{
         type:String,
