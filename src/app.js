@@ -14,6 +14,9 @@ app.use(cookie())
  */
 
 app.use("/api/auth",authRouter)
+
+// account routes
+
 app.use("/api/accounts",accountRouter)
 
 
