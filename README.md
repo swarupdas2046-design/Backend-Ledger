@@ -3,8 +3,8 @@
 A backend ledger-like banking system API. The project is currently in active development.
 
 **Author:** Swarup Das  
-**Current Date:** Tuesday, August 20, 2026  
-**Project Day:** Day 4  
+**Current Date:** Tuesday, August 21, 2026  
+**Project Day:** Day 5  
 **Status:** Build in progress
 
 ## Current Progress
