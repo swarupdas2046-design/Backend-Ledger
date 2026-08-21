@@ -1,17 +1,45 @@
 # Backend Ledger
 
-A backend ledger-like banking system API. The project is currently in active development.
+A backend ledger-style banking API built with Node.js, Express, MongoDB, and Mongoose.
 
 **Author:** Swarup Das  
-**Current Date:** Tuesday, August 21, 2026  
-**Project Day:** Day 5  
+**Last Updated:** Saturday, August 22, 2026  
+**Project Day:** Day 6  
 **Status:** Build in progress
 
-## Current Progress
+## Current Status
 
-The project currently has the authentication foundation completed successfully. It includes user registration, user login, JWT-based access and refresh tokens, cookie-based authentication, password hashing, MongoDB connection setup, centralized error handling, and a protected health route.
+Backend Ledger now has the core foundation for a banking-style system:
 
-Ledger-specific banking features such as accounts, balances, deposits, withdrawals, transfers, transaction history, and double-entry ledger records are not implemented yet.
+- User authentication with register, login, refresh token, and protected route verification.
+- Password hashing with bcrypt.
+- JWT access and refresh token flow through HTTP-only secure cookies.
+- Welcome email sent after successful registration.
+- Account creation and account listing for authenticated users.
+- Ledger-derived account balance calculation.
+- Transaction creation with debit and credit ledger entries.
+- MongoDB session-based transaction flow for money movement.
+- Idempotency key handling to avoid duplicate transaction execution.
+- System-user protected initial-funds transaction endpoint.
+- Centralized async error handling and API response helpers.
+
+The project is still in active development. It has a strong authentication, account, and transaction base, but it is not production-ready yet.
+
+<!-- ## Remaining Work
+
+- Add transaction history/list APIs.
+- Add single transaction details API.
+- Add account freeze, close, and status management APIs.
+- Add deposit and withdrawal APIs if they should exist separately from transfer flow.
+- Add transaction reversal/refund flow.
+- Add stronger ownership checks for transfer `fromAccount`.
+- Remove the temporary 15-second delay in transaction processing before production.
+- Improve failed transaction handling and rollback reporting.
+- Add request validation middleware.
+- Add rate limiting and security headers.
+- Add automated tests.
+- Add API documentation collection, for example Postman or OpenAPI.
+- Add production logging. -->
 
 ## Tech Stack
 
@@ -21,6 +49,7 @@ Ledger-specific banking features such as accounts, balances, deposits, withdrawa
 - Mongoose
 - JSON Web Token
 - bcrypt
+- Nodemailer
 - cookie-parser
 - dotenv
 
@@ -41,49 +70,84 @@ Backend-LEDGER/
     +-- config/
     |   +-- database.js
     +-- controllers/
+    |   +-- accounts.controller.js
     |   +-- auth.controller.js
+    |   +-- transaction.controller.js
     +-- middlewares/
     |   +-- auth.middleware.js
     |   +-- error.middleware.js
     +-- models/
+    |   +-- account.model.js
     |   +-- auth.model.js
+    |   +-- ledger.model.js
+    |   +-- transaction.model.js
     +-- routes/
+    |   +-- account.route.js
     |   +-- auth.routes.js
+    |   +-- transaction.route.js
     +-- services/
+    |   +-- account.service.js
     |   +-- auth.service.js
+    |   +-- mail.service.js
+    |   +-- transaction.service.js
     +-- utils/
         +-- apiError.js
         +-- apiResponse.js
         +-- asyncHandler.js
+        +-- emailTemplate.js
         +-- token.js
 ```
 
-## Architecture Status
+## Architecture
 
-- `server.js` starts the server and connects to MongoDB.
-- `src/app.js` configures Express, JSON body parsing, cookies, routes, and global error middleware.
-- `routes/` defines API endpoints.
-- `controllers/` handles request and response logic.
-- `services/` contains business logic and validation.
-- `models/` contains Mongoose schemas and database models.
-- `middlewares/` contains authentication and error handling middleware.
-- `utils/` contains reusable helpers for API responses, API errors, async handling, and token generation.
+- `server.js` loads environment variables, connects MongoDB, and starts the server.
+- `src/app.js` configures Express, JSON parsing, cookies, route mounting, and global error handling.
+- `routes/` defines API endpoint groups.
+- `controllers/` handles request/response flow.
+- `services/` contains business logic.
+- `models/` contains Mongoose schemas and database methods.
+- `middlewares/` contains authentication and centralized error middleware.
+- `utils/` contains reusable helpers for API responses, API errors, async handling, email templates, and token logic.
 
 ## Environment Variables
 
-Create a `.env` file with the following variables:
+Create a `.env` file with:
 
 ```env
 PORT=5000
 MONGO_URL=your_mongodb_connection_string
 ACCESS_SECRET=your_access_token_secret
 REFRESH_SECRET=your_refresh_token_secret
+EMAIL_USER=your_gmail_address
+CLIENT_ID=your_google_oauth_client_id
+CLIENT_SECRET=your_google_oauth_client_secret
+REFRESH_TOKEN=your_google_oauth_refresh_token
 ```
 
 ## API Base URL
 
 ```txt
 http://localhost:5000/api
+```
+
+## API Response Format
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Response message",
+  "data": {}
+}
+```
+
+Error response:
+
+```json
+{
+  "message": "Error message"
+}
 ```
 
 ## Authentication APIs
@@ -108,19 +172,14 @@ Request body:
 
 What it does:
 
-- Validates `name`, `email`, and `password`.
-- Checks if the user already exists.
+- Validates name, email, and password.
+- Checks if the email already exists.
 - Hashes the password using bcrypt.
-- Creates a new user in MongoDB.
+- Creates the user in MongoDB.
 - Generates access and refresh tokens.
 - Stores the refresh token in the user document.
-- Sends both tokens as HTTP-only secure cookies.
-
-Success status:
-
-```txt
-201 Created
-```
+- Sends access and refresh tokens as HTTP-only secure cookies.
+- Sends a welcome email to the new user.
 
 ### Login User
 
@@ -141,18 +200,12 @@ Request body:
 
 What it does:
 
-- Validates `email` and `password`.
+- Validates email and password.
 - Finds the user by email.
-- Compares the password with the hashed password stored in MongoDB.
+- Compares the password with the stored bcrypt hash.
 - Generates a new access token and refresh token.
-- Updates the refresh token in the user document.
+- Updates the stored refresh token.
 - Sends both tokens as HTTP-only secure cookies.
-
-Success status:
-
-```txt
-200 OK
-```
 
 ### Refresh Access Token
 
@@ -160,22 +213,15 @@ Success status:
 GET /api/auth/getRefresh
 ```
 
-Generates a new access token using the refresh token.
+Generates a new access token using the refresh token cookie.
 
 What it does:
 
 - Reads the `RefreshToken` cookie.
-- Verifies the refresh token using JWT.
+- Verifies it with JWT.
 - Finds the user from the decoded token payload.
-- Checks if the refresh token matches the token stored in the database.
-- Generates a new access token.
-- Sends the new access token as an HTTP-only secure cookie.
-
-Success status:
-
-```txt
-200 OK
-```
+- Confirms the cookie refresh token matches the stored refresh token.
+- Sends a new `AccessToken` cookie.
 
 ### Protected Health Check
 
@@ -183,21 +229,140 @@ Success status:
 GET /api/auth/health
 ```
 
-Checks if the user is authenticated.
+Checks whether the current user is authenticated.
 
 What it does:
 
 - Reads the `AccessToken` cookie.
-- Verifies the access token using JWT.
-- Finds the user by token payload.
-- Excludes `password` and `refreshToken` from the returned user data.
+- Verifies it with JWT.
+- Finds the user.
+- Excludes password and refresh token from returned user data.
 - Returns authenticated user details.
 
-Success status:
+## Account APIs
 
-```txt
-200 OK
+All account routes require authentication through the `AccessToken` cookie.
+
+### Create Account
+
+```http
+POST /api/accounts
 ```
+
+Creates a new account for the logged-in user.
+
+What it does:
+
+- Verifies the user through `authMiddleware`.
+- Creates an account linked to `req.user._id`.
+- Uses default status `Active`.
+- Uses default currency `INR`.
+
+### Get User Accounts
+
+```http
+GET /api/accounts
+```
+
+Fetches all accounts that belong to the logged-in user.
+
+What it does:
+
+- Verifies the user.
+- Finds all accounts where `user` equals the authenticated user's ID.
+- Returns the account list.
+
+### Get Account Balance
+
+```http
+GET /api/accounts/balance/:accountId
+```
+
+Fetches the current account balance.
+
+What it does:
+
+- Verifies the user.
+- Confirms the account belongs to the authenticated user.
+- Calculates balance from ledger entries.
+- Balance formula: total `CREDIT` minus total `DEBIT`.
+
+## Transaction APIs
+
+### Create Transaction
+
+```http
+POST /api/transactions
+```
+
+Creates a transfer transaction between two accounts.
+
+Request body:
+
+```json
+{
+  "fromAccount": "source_account_id",
+  "toAccount": "destination_account_id",
+  "amount": 500,
+  "idempotencyKey": "unique-transfer-key"
+}
+```
+
+What it does:
+
+- Requires authenticated user.
+- Validates `fromAccount`, `toAccount`, `amount`, and `idempotencyKey`.
+- Rejects negative transaction amounts.
+- Checks both accounts exist.
+- Checks whether the idempotency key was already used.
+- Returns existing transaction status for duplicate idempotency keys.
+- Requires both accounts to be `Active`.
+- Calculates sender balance from ledger entries.
+- Rejects the transaction if balance is insufficient.
+- Starts a MongoDB session transaction.
+- Creates the transaction as `PENDING`.
+- Creates a `DEBIT` ledger entry for the source account.
+- Creates a `CREDIT` ledger entry for the destination account.
+- Marks the transaction as `COMPLETED`.
+- Commits the MongoDB transaction.
+- Sends a transaction notification email.
+
+Current idempotency behavior:
+
+- `COMPLETED`: returns the completed transaction.
+- `PENDING`: returns processing status.
+- `FAILED`: rejects with conflict.
+- `REVERSED`: rejects with conflict.
+
+### Create Initial Funds Transaction
+
+```http
+POST /api/transactions/system/initial-funds
+```
+
+Creates an initial-funds transfer from a system user account to another account.
+
+Request body:
+
+```json
+{
+  "toAccount": "destination_account_id",
+  "amount": 1000,
+  "idempotencyKey": "unique-initial-funds-key"
+}
+```
+
+What it does:
+
+- Requires `authSystemMiddleware`.
+- Verifies the logged-in user has `systemUser: true`.
+- Finds the destination account.
+- Finds the system user's account.
+- Starts a MongoDB session transaction.
+- Creates a debit ledger entry from the system account.
+- Creates a credit ledger entry to the destination account.
+- Marks the transaction as `COMPLETED`.
+- Commits the MongoDB transaction.
 
 ## Security Implementation
 
@@ -205,15 +370,13 @@ Success status:
 
 Passwords are hashed using `bcrypt`.
 
-Current implementation:
-
 ```js
 bcrypt.hashSync(password, 10)
 ```
 
-- Hashing happens inside the Mongoose `pre("save")` middleware.
-- Salt rounds used: `10`.
-- Password verification uses:
+- Hashing runs in the Mongoose `pre("save")` middleware.
+- Salt rounds: `10`.
+- Password comparison uses:
 
 ```js
 bcrypt.compareSync(password, hashedPassword)
@@ -221,25 +384,25 @@ bcrypt.compareSync(password, hashedPassword)
 
 ### Token System
 
-Tokens are created using the `jsonwebtoken` package.
+Tokens are created and verified with `jsonwebtoken`.
 
 Access token:
 
 - Cookie name: `AccessToken`
-- JWT payload: `{ id: userId }`
+- Payload: `{ id: userId }`
 - Secret: `process.env.ACCESS_SECRET`
 - Expiry: `20M`
-- Cookie max age: `20 minutes`
+- Cookie max age: 20 minutes
 - Used for protected routes.
 
 Refresh token:
 
 - Cookie name: `RefreshToken`
-- JWT payload: `{ id: userId }`
+- Payload: `{ id: userId }`
 - Secret: `process.env.REFRESH_SECRET`
 - Expiry: `1D`
-- Cookie max age: `1 day`
-- Stored in MongoDB on the user document.
+- Cookie max age: 1 day
+- Stored on the user document.
 - Used to generate a new access token.
 
 Cookies are configured with:
@@ -251,46 +414,111 @@ Cookies are configured with:
 }
 ```
 
-## User Model
+### System User Access
 
-Current user authentication model:
+The user model includes:
+
+```txt
+systemUser: Boolean
+```
+
+- Default value: `false`.
+- Immutable field.
+- Hidden from normal queries with `select: false`.
+- Used by `authSystemMiddleware` for system-only transaction routes.
+
+## Email System
+
+Email sending is implemented with Nodemailer using Gmail OAuth2.
+
+Current emails:
+
+- Welcome email after registration.
+- Transaction notification after successful transfer.
+- Transaction failed email template exists, but is not currently wired into the transaction failure flow.
+
+The welcome email includes:
+
+- HTML email layout.
+- Plain text fallback.
+- HTML-safe user name escaping.
+- Modern banking-style visual theme.
+
+## Data Models
+
+### UserAuth
 
 ```txt
 UserAuth
 +-- name
 +-- email
 +-- password
++-- systemUser
 +-- refreshToken
 +-- createdAt
 +-- updatedAt
 ```
 
-Validation rules:
+### Account
 
-- `name` is required and must be at least 3 characters.
-- `email` is required, unique, lowercase, trimmed, and must match email format.
-- `password` is required and must be at least 6 characters.
-- `refreshToken` stores the latest active refresh token.
-
-## API Response Format
-
-Successful responses use:
-
-```json
-{
-  "success": true,
-  "message": "Response message",
-  "data": {}
-}
+```txt
+Account
++-- user
++-- status
++-- currency
++-- createdAt
++-- updatedAt
 ```
 
-Error responses use:
+Account rules:
 
-```json
-{
-  "message": "Error message"
-}
+- `user` references `UserAuth`.
+- `status` can be `Active`, `Frozen`, or `Closed`.
+- `currency` defaults to `INR`.
+- Balance is derived from ledger entries, not stored directly.
+
+### Transaction
+
+```txt
+Transaction
++-- fromAccount
++-- toAccount
++-- status
++-- amount
++-- idempotencyKey
++-- createdAt
++-- updatedAt
 ```
+
+Transaction status values:
+
+- `PENDING`
+- `COMPLETED`
+- `FAILED`
+- `REVERSED`
+
+### Ledger
+
+```txt
+Ledger
++-- account
++-- amount
++-- transaction
++-- type
++-- createdAt
++-- updatedAt
+```
+
+Ledger entry types:
+
+- `DEBIT`
+- `CREDIT`
+
+Ledger rules:
+
+- Ledger entries are immutable.
+- Account, amount, transaction, and type cannot be changed after creation.
+- Update and delete operations are blocked through Mongoose middleware.
 
 ## Run Project
 
@@ -314,9 +542,9 @@ npm run dev
 
 ## Development Notes
 
-- Current completed module: Authentication.
-- Current route group: `/api/auth`.
+- Current route groups: `/api/auth`, `/api/accounts`, `/api/transactions`.
 - Database connection is handled through Mongoose.
-- Async controller errors are passed to centralized error middleware.
-- No ledger transaction APIs are available yet.
+- Transaction flow uses MongoDB sessions.
+- Account balance is calculated from ledger entries.
 - No automated tests are configured yet.
+- The current `npm test` script is still a placeholder.
